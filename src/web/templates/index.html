@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🔍 Tìm Kiếm Tài Liệu Tiếng Việt</title>
+  <!-- Bootstrap 5 CDN -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    body { background-color: #f8f9fa; }
+    .hero { background: linear-gradient(135deg, #1a73e8, #0d47a1); color: white; padding: 3rem 0 2rem; }
+    .search-card { border: none; border-radius: 1rem; box-shadow: 0 4px 24px rgba(0,0,0,.10); }
+    .result-card { border-radius: .75rem; border-left: 4px solid #1a73e8; transition: box-shadow .2s; }
+    .result-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+    .score-badge { font-size: .75rem; }
+    .method-label { font-size: .8rem; }
+    #spinner { display: none; }
+    #no-results { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- Hero / header -->
+<div class="hero text-center mb-4">
+  <h1 class="fw-bold">🔍 Hệ Thống Tìm Kiếm Tài Liệu Tiếng Việt</h1>
+  <p class="lead mb-0">BM25 &bull; TF-IDF &bull; Query Expansion</p>
+</div>
+
+<div class="container" style="max-width: 860px;">
+
+  <!-- Search form -->
+  <div class="card search-card p-4 mb-4">
+    <form id="searchForm">
+      <div class="input-group mb-3">
+        <input
+          type="text"
+          id="queryInput"
+          class="form-control form-control-lg"
+          placeholder="Nhập từ khoá tìm kiếm... (VD: học máy ứng dụng y tế)"
+          autocomplete="off"
+          required
+        />
+        <button class="btn btn-primary px-4" type="submit">Tìm kiếm</button>
+      </div>
+
+      <!-- Method selector -->
+      <div class="d-flex align-items-center gap-3">
+        <span class="method-label text-muted fw-semibold">Phương pháp:</span>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="method" id="m_bm25" value="bm25" checked />
+          <label class="form-check-label" for="m_bm25">BM25</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="method" id="m_bm25_exp" value="bm25_expand" />
+          <label class="form-check-label" for="m_bm25_exp">BM25 + Query Expansion</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="method" id="m_tfidf" value="tfidf" />
+          <label class="form-check-label" for="m_tfidf">TF-IDF</label>
+        </div>
+        <div class="ms-auto">
+          <label for="topk" class="me-1 text-muted" style="font-size:.85rem;">Top-K:</label>
+          <input type="number" id="topk" class="form-control d-inline-block" value="10" min="1" max="50" style="width:70px;" />
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Spinner -->
+  <div id="spinner" class="text-center my-4">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="text-muted mt-2">Đang tìm kiếm...</p>
+  </div>
+
+  <!-- Kết quả -->
+  <div id="resultsContainer"></div>
+
+  <!-- Không có kết quả -->
+  <div id="no-results" class="text-center text-muted my-5">
+    <p class="fs-5">😔 Không tìm thấy tài liệu phù hợp.</p>
+    <p>Hãy thử từ khoá khác hoặc dùng BM25 + Query Expansion.</p>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+  const form = document.getElementById("searchForm");
+  const resultsContainer = document.getElementById("resultsContainer");
+  const spinner = document.getElementById("spinner");
+  const noResults = document.getElementById("no-results");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const query  = document.getElementById("queryInput").value.trim();
+    const method = document.querySelector('input[name="method"]:checked').value;
+    const topK   = parseInt(document.getElementById("topk").value, 10);
+
+    if (!query) return;
+
+    // Reset UI
+    resultsContainer.innerHTML = "";
+    noResults.style.display    = "none";
+    spinner.style.display      = "block";
+
+    try {
+      const resp = await fetch("/api/search", {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({ query, method, top_k: topK }),
+      });
+
+      const data = await resp.json();
+      spinner.style.display = "none";
+
+      if (data.error) {
+        resultsContainer.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        return;
+      }
+
+      // Thông tin tổng quan
+      let infoHtml = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span class="text-muted">Tìm thấy <strong>${data.results.length}</strong> kết quả
+            ${data.expanded_query ? `(query mở rộng: <em>${data.expanded_query}</em>)` : ""}
+          </span>
+          <span class="text-muted" style="font-size:.85rem;">⏱ ${data.elapsed_ms} ms</span>
+        </div>`;
+      resultsContainer.innerHTML = infoHtml;
+
+      if (data.results.length === 0) {
+        noResults.style.display = "block";
+        return;
+      }
+
+      // Render từng kết quả
+      data.results.forEach((item, idx) => {
+        const title   = item.title   || `Tài liệu #${item.doc_id}`;
+        const snippet = item.snippet || item.content?.substring(0, 200) || "(Không có nội dung)";
+        const cat     = item.category || "";
+        const score   = item.score;
+
+        const card = document.createElement("div");
+        card.className = "card result-card mb-3 p-3";
+        card.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <h6 class="mb-0 fw-semibold text-primary">${idx + 1}. ${title}</h6>
+            <span class="badge bg-secondary score-badge ms-2">Score: ${score}</span>
+          </div>
+          ${cat ? `<span class="badge bg-light text-dark mb-2">${cat}</span>` : ""}
+          <p class="text-muted mb-0" style="font-size:.9rem;">${snippet}...</p>`;
+        resultsContainer.appendChild(card);
+      });
+
+    } catch (err) {
+      spinner.style.display = "none";
+      resultsContainer.innerHTML = `<div class="alert alert-danger">Lỗi kết nối: ${err.message}</div>`;
+    }
+  });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
