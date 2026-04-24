@@ -68,7 +68,7 @@ def main() -> None:
     # ── Xây dựng TF-IDF ──────────────────────────────────────────────────────
     logger.info("Đang fit TF-IDF ...")
     corpus = [" ".join(rec["tokens"]) for rec in records]
-    tfidf = TFIDFSearcher(max_features=50_000)
+    tfidf = TFIDFSearcher(max_features=50_000, n_jobs=config.N_JOBS)
     tfidf.fit(corpus)
     tfidf.save(config.TFIDF_VECTORIZER_FILE, config.TFIDF_MATRIX_FILE)
 

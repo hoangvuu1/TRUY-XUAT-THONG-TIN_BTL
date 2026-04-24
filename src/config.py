@@ -28,8 +28,9 @@ TFIDF_MATRIX_FILE       = INDEX_DIR / "tfidf_matrix.pkl"
 DOC_METADATA_FILE       = INDEX_DIR / "doc_metadata.pkl"
 
 # ── Tham số tiền xử lý ────────────────────────────────────────────────────────
-MAX_DOCS = int(os.getenv("MAX_DOCS", 10_000))  # Giới hạn số tài liệu xử lý
+MAX_DOCS = int(os.getenv("MAX_DOCS", 0))       # 0 = không giới hạn (load toàn bộ dataset)
 MIN_TOKEN_LEN = 2                              # Bỏ token ngắn hơn n ký tự
+N_JOBS = int(os.getenv("N_JOBS", -1))          # Số tiến trình song song (-1 = dùng hết CPU)
 
 # ── Tham số BM25 ──────────────────────────────────────────────────────────────
 BM25_K1 = float(os.getenv("BM25_K1", 1.5))

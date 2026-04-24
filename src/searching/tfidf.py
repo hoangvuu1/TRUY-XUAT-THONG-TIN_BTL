@@ -27,8 +27,9 @@ class TFIDFSearcher:
         results = searcher.get_top_k("học máy ứng dụng", k=10)
     """
 
-    def __init__(self, max_features: int = 50_000) -> None:
+    def __init__(self, max_features: int = 50_000, n_jobs: int = -1) -> None:
         self.max_features = max_features
+        self.n_jobs = n_jobs
         self.vectorizer: TfidfVectorizer | None = None
         self.tfidf_matrix = None  # scipy sparse matrix
 
